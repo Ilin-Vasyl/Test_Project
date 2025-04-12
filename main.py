@@ -4,14 +4,19 @@ import plotly.express as px
 import dash
 from dash import dcc, html
 import pandas as pd
+import os
 import warnings
+
+# Отключаем предупреждения
 warnings.filterwarnings('ignore')
 
 # Создаем приложение Dash
 app = dash.Dash(__name__)
 
+# Загружаем данные
 deals = pd.read_pickle('deals.pkl')
-# Первый графикers\User\Downloads\C__Users_User_Desktop_deals.pkl')
+
+# Подготовка данных для первого графика
 owner_df = deals.groupby('Deal_Owner_Name').size().reset_index(name='total')
 payment_done_df = deals[(deals['Stage'] == 'Payment Done') & (deals['Offer_Total_Amount'] > 0)].groupby('Deal_Owner_Name').agg(
     payment_done=('Stage', 'count'),
@@ -22,6 +27,7 @@ owner_data = pd.merge(owner_df, payment_done_df, on='Deal_Owner_Name', how='left
 owner_data['conversion_rate'] = (owner_data['payment_done'] / owner_data['total'] * 100).round(2)
 owner_data = owner_data.sort_values('conversion_rate', ascending=False)
 
+# График 1
 fig1 = go.Figure()
 fig1.add_trace(go.Bar(
     x=owner_data['Deal_Owner_Name'],
@@ -37,14 +43,14 @@ fig1.add_trace(go.Bar(
 fig1.add_trace(go.Scatter(
     x=owner_data['Deal_Owner_Name'],
     y=owner_data['deal_amount_sum'],
-    name='Общая стоимость договоров по которым был совершен min один платеж',
+    name='Общая стоимость договоров',
     mode='lines+markers',
     line=dict(color='darkgreen', width=3, dash='dash'),
     yaxis='y2'
 ))
 
 fig1.update_layout(
-    title='Эффективность работы менеджеров в разрезе конверсии клиентов и договоров с оплатой',
+    title='Эффективность работы менеджеров',
     xaxis=dict(title='Менеджер'),
     yaxis=dict(
         title='Количество клиентов',
@@ -67,19 +73,10 @@ fig1.update_layout(
     bargap=0.2,
     template='plotly_white',
     height=750,
-    margin=dict(t=100),
-    annotations=[
-        dict(
-            xref='paper', yref='paper',
-            x=0.70, y=0.88,
-            showarrow=False,
-            text='"4,65%" — конверсия',
-            font=dict(size=12, color='orange'),
-        )
-    ]
+    margin=dict(t=100)
 )
 
-# Второй график
+# Подготовка данных для второго графика
 ad_df = deals.groupby('Ad').size().reset_index(name='total')
 payment_done_df = deals[(deals['Stage'] == 'Payment Done') & (deals['Offer_Total_Amount'] > 0)].groupby('Ad').agg(
     payment_done=('Stage', 'count'),
@@ -90,6 +87,7 @@ owner_data = pd.merge(ad_df, payment_done_df, on='Ad', how='left')
 owner_data['conversion_rate'] = (owner_data['payment_done'] / owner_data['total'] * 100).round(2)
 owner_data = owner_data.sort_values('conversion_rate', ascending=False)
 
+# График 2
 fig2 = go.Figure()
 fig2.add_trace(go.Bar(
     x=owner_data['Ad'],
@@ -105,14 +103,14 @@ fig2.add_trace(go.Bar(
 fig2.add_trace(go.Scatter(
     x=owner_data['Ad'],
     y=owner_data['deal_amount_sum'],
-    name='Общая стоимость договоров по которым был совершен min один платеж',
+    name='Общая стоимость договоров',
     mode='lines+markers',
     line=dict(color='darkgreen', width=3, dash='dash'),
     yaxis='y2'
 ))
 
 fig2.update_layout(
-    title='Эффективность рекламных компаний в разрезе конверсии клиентов и договоров с оплатой',
+    title='Эффективность рекламных компаний',
     xaxis=dict(title='Рекламная компания'),
     yaxis=dict(
         title='Количество клиентов',
@@ -135,19 +133,10 @@ fig2.update_layout(
     bargap=0.2,
     template='plotly_white',
     height=750,
-    margin=dict(t=100),
-    annotations=[
-        dict(
-            xref='paper', yref='paper',
-            x=0.78, y=0.86,
-            showarrow=False,
-            text='"4,65%" — конверсия',
-            font=dict(size=12, color='orange'),
-        )
-    ]
+    margin=dict(t=100)
 )
 
-# Третий график
+# Подготовка данных для третьего графика
 paid_deals = deals[(deals['Stage'] == 'Payment Done') & (deals['Offer_Total_Amount'] > 0)]
 pivot_table_sum = paid_deals.pivot_table(index='Product', columns='Education_Type', values='Offer_Total_Amount', aggfunc='sum').drop(index='NoData')
 pivot_table_reset_sum = pivot_table_sum.reset_index()
@@ -173,7 +162,7 @@ fig3b = px.bar(pivot_table_reset_count,
 fig = make_subplots(
     rows=2, cols=2,
     subplot_titles=('Эффективность работы менеджеров', 'Эффективность рекламных компаний', 'Структура студентов'),
-    shared_yaxes=False  # Отключаем общую ось Y
+    shared_yaxes=False
 )
 
 # Добавляем первый график
@@ -195,10 +184,13 @@ fig.update_layout(
     showlegend=True
 )
 
+# Устанавливаем порт через переменную окружения, если доступна
+port = int(os.environ.get('PORT', 8050))
+
 # Запуск Dash-приложения
 app.layout = html.Div([
     dcc.Graph(figure=fig)
 ])
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=port, debug=True)
